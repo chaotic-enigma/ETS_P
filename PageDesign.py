@@ -75,7 +75,7 @@ seismic_map_result = html.Div([
 			html.H6('Seismic Report', 
 				style={'backgroundColor' : colors_useful['symmetry'], 'textAlign' : 'center'}),
 			html.Div([
-				html.Div(id='people-reports')
+				html.Div(id='felt-reports')
 			], style={'overflowY' : 'scroll', 'height' : 200})
 		]),
 		html.Div([
@@ -90,9 +90,9 @@ seismic_map_result = html.Div([
 				style={'backgroundColor' : colors_useful['symmetry'], 'textAlign' : 'center'}),
 			html.Div([
 				html.Div(id='tsunami-reports')
-			], style={'overflowY' : 'scroll', 'height' : 130})
+			], style={'overflowY' : 'scroll', 'height' : 115})
 		]),
-	], className='three columns', style={'margin-top' : 50, 'margin-left' :5})
+	], className='three columns', style={'margin-top' : 50, 'margin-left' : 8})
 ], className='row')
 #</seismic_report_result>
 
@@ -104,5 +104,5 @@ basic_visuals = html.Div([
 	html.Div([
 		html.Div(id='area-count-plot')
 	], className='seven columns')
-], className='row', style={'margin-left' : 20})
+], className='row', style={'margin-left' : 20, 'margin-top' : 30})
 #</basic_visualization>
