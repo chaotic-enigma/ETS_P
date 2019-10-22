@@ -6,10 +6,11 @@ from dash.dependencies import (Input, Output)
 import pandas as pd
 import plotly.graph_objs as go
 
-from PageDesign import (colors_useful, heading_bar, map_graphing_styles, seismic_map_result, basic_visuals)
+from PageDesign import (colors_useful, tracking_realtime, insightful_history)
 from TrackingFlow import (GrabOccurrenceData, GrabMagnitudes, GrabSpecificArea)
 from TrackingReport import (GrabFeltReport, GrabAlertReport, GrabTsunamiReport)
-from GraphPlotting import (PlotDensityMap, PlotScatterMap, LayoutDensity, LayoutScatter)
+from GraphPlotting import (PlotDensityMap, PlotScatterMap, LayoutDensity, LayoutScatter, LayoutScatterFrames)
+from CountryHistoryProne import (GrabContentPerYear, GetDataYearValue, GetCountryDataByYear)
 
 external_scripts = ['https://www.google-analytics.com/analytics.js']
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -26,13 +27,16 @@ app = dash.Dash(__name__,
 app.config['suppress_callback_exceptions'] = True
 
 app.layout = html.Div([
-	heading_bar,
-	map_graphing_styles,
-	html.Div([dcc.Interval(id='output-update', interval=180*1000)]),
-	seismic_map_result,
-	basic_visuals,
+	dcc.Tabs(id='tabs', children=[
+		dcc.Tab(label='Live Tracking', children=[
+			tracking_realtime
+		], className='custom-tab', selected_className='custom-tab--selected'),
+		dcc.Tab(label='History (1965 - 2016)', children=[
+			insightful_history
+		], className='custom-tab', selected_className='custom-tab--selected')
+	]),
 	html.Div([])
-], style={'margin-top' : 20, 'margin-bottom' : 20})
+])
 
 #<magnitude_list>
 @app.callback(
@@ -288,7 +292,110 @@ def count_area_plot(past_occurrence, mag_value, n_intervals):
 	return repetitive_areas
 #</count_area_plot>
 
+#<top_thirty_countries_occurrences_by_year>
+@app.callback(
+	Output('map-history', 'children'),
+	[Input('top-thirty-risky', 'value'), Input('year-slider', 'value')]
+)
+def history_scatter_map(risky_code, year_value):
+	risky_country = GetCountryDataByYear(risky_code, year_value)
+	if risky_country.shape[0] > 0:
+		lats = risky_country['Latitude'].to_list()
+		lons = risky_country['Longitude'].to_list()
+		magnitudes = risky_country['Magnitude'].to_list()
+		mags_info = ['Magnitude : ' + str(m) for m in magnitudes]
+		depths = risky_country['Depth'].to_list()
+		deps_info = ['Depth : ' + str(d) for d in depths]
+		places = risky_country['Place'].to_list()
+		country_risky_info = [places[i] + '<br>' + mags_info[i] + '<br>' + deps_info[i] 
+			for i in range(risky_country.shape[0])]
 
+		center_lat = risky_country[risky_country['Magnitude'] <= risky_country['Magnitude'].min()]['Latitude'].to_list()[0]
+		center_lon = risky_country[risky_country['Magnitude'] <= risky_country['Magnitude'].min()]['Longitude'].to_list()[0]
+
+		country_map = PlotScatterMap(lats, lons, 10, magnitudes, default_colorscale, country_risky_info)
+		country_layout = LayoutScatter(400, 1000, 'stamen-terrain', center_lat, center_lon, 2.5)
+		result_country = html.Div([
+			dcc.Graph(
+				id='risky-country-result',
+				figure={'data' : [country_map], 'layout' : country_layout}
+			)
+		], style={'margin-top' : 20, 'margin-left' : 10})
+		return result_country
+	return html.Div([
+		html.H6('No Earthquakes found for {} in the year {}'.format(risky_code, year_value))
+	], style={'margin-top' : 150, 'margin-bottom' : 150, 'margin-left' : 250})
+#</top_thirty_countries_occurrences_by_year>
+
+#<basic_statistics>
+@app.callback(
+	Output('res-total-occurrences', 'children'), [Input('top-thirty-risky', 'value')]
+)
+def result_total_occurrences(risky_code):
+	dataq = pd.read_csv('quake_db_1965-2016.csv')
+	risky_country = dataq[dataq['Place'].str.contains(risky_code)]
+	risky_country = risky_country[['Date', 'Latitude', 'Longitude', 'Magnitude', 'Depth', 'Type', 'Place']]
+	if risky_country.shape[0] == 0:
+		res_total = 0
+	else: res_total = risky_country.shape[0]
+	return html.P(str(res_total))
+
+@app.callback(
+	Output('res-year-num', 'children'), [Input('year-slider', 'value')]
+)
+def update_year_value(year_value):
+	return html.P('( {} ) : '.format(year_value))
+
+@app.callback(
+	Output('res-yearly-occ', 'children'), 
+	[Input('top-thirty-risky', 'value'), Input('year-slider', 'value')]
+)
+def result_yearly_occurrences(risky_code, year_value):
+	risky_country = GetCountryDataByYear(risky_code, year_value)
+	return html.P(str(risky_country.shape[0]))
+
+@app.callback(
+	Output('res-high-mag', 'children'),
+	[Input('top-thirty-risky', 'value'), Input('year-slider', 'value')]
+)
+def result_highest_mag(risky_code, year_value):
+	risky_country = GetCountryDataByYear(risky_code, year_value)
+	mag_high = risky_country['Magnitude'].max()
+	return html.P(str(mag_high))
+
+@app.callback(
+	Output('high-mag-depth', 'children'),
+	[Input('top-thirty-risky', 'value'), Input('year-slider', 'value')]
+)
+def result_highest_depth(risky_code, year_value):
+	risky_country = GetCountryDataByYear(risky_code, year_value)
+	if risky_country.shape[0] == 0: depth_high_mag = 0
+	else:
+		depth_high_mag = risky_country[risky_country['Magnitude'] >= risky_country['Magnitude'].max()]['Depth'].to_list()[0]
+	return html.P(str(depth_high_mag))
+
+@app.callback(
+	Output('high-mag-type', 'children'),
+	[Input('top-thirty-risky', 'value'), Input('year-slider', 'value')]
+)
+def result_high_mag_type(risky_code, year_value):
+	risky_country = GetCountryDataByYear(risky_code, year_value)
+	if risky_country.shape[0] == 0: res_type = 'None'
+	else:
+		res_type = risky_country[risky_country['Magnitude'] >= risky_country['Magnitude'].max()]['Type'].to_list()[0]
+	return html.P(res_type)
+
+@app.callback(
+	Output('res-place', 'children'),
+	[Input('top-thirty-risky', 'value'), Input('year-slider', 'value')]
+)
+def result_place_name(risky_code, year_value):
+	risky_country = GetCountryDataByYear(risky_code, year_value)
+	if risky_country.shape[0] == 0: res_place = 'Null'
+	else:
+		res_place = risky_country[risky_country['Magnitude'] >= risky_country['Magnitude'].max()]['Place'].to_list()[0]
+	return html.H6(res_place)
+#</basic_statistics>
 
 
 if __name__ == '__main__':

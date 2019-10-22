@@ -61,5 +61,37 @@ def LayoutScatter(height, width, mapbox_style, c_lat, c_lon, zoom):
 	  )
 	)
 	return layout_scatter_map
+
+def LayoutScatterFrames(height, width, mapbox_style, c_lat, c_lon, zoom):
+	layout_frame = go.Layout(
+ 		height=height,
+		width=width,
+		autosize=True,
+		hovermode='closest',
+		mapbox_style=mapbox_style,
+		margin=dict(l=0, r=0, t=0, b=0),
+		mapbox=dict(
+			bearing=0,
+			center=dict(
+				lat=c_lat,
+				lon=c_lon
+			),
+			pitch=0,
+			zoom=zoom,
+		),
+		updatemenus=[
+			dict(
+				type="buttons",
+				buttons=[
+					dict(
+						label="Play",
+						method="animate",
+						args=[None]
+					)
+				]
+			)
+		]
+	)
+	return layout_frame
 #</ScatterMap>
 
